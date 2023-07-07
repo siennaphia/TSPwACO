@@ -1,9 +1,24 @@
-# Team members: Susanne Santos Erenst, Sienna Gaita-Monjaraz, Maximo Mejia
-# CAP4630 - Intro to AI
-# Project 3 - TSP using ACO
 
+import simple_colors
 import numpy as np
 import random
+import matplotlib.pyplot as plt
+
+# Graph a line plot of the min. distance at each iteration
+def plot_iterations_over_distance(x, y):
+    plt.plot(x, y, color = "green")
+    plt.title("\nBest Solution Distance Over Course of Search")
+    plt.xlabel("Epoch(s)") # X axis
+    plt.ylabel("Total distance (km) for TSP") # Y axis
+    plt.show()
+
+# Graph a scattered line plot of the best tour
+def plot_optimal_path_through_cities(x, y):
+    plt.title("\nOptimal Path Through Cities Found")
+    plt.xlabel("X-Coordinate of City")
+    plt.ylabel("Y-Coordinate of City")
+    plt.plot(x, y, marker = "*", mec = "red", mfc = 'red', ms = 8, color = "green")
+    plt.show()
 
 # Class to represent cities with a name and x, y coordinates for positioning
 class City:
@@ -35,13 +50,13 @@ class Tour:
 
 # class to implement the aco
 class AntColonyOptimization:
-    def __init__(self, cities, n_ants, n_iterations, decay=0.1):
+    def __init__(self, cities, n_ants, n_iterations, decay=0.99):
         self.cities = cities
         self.distances = self.calculate_distances()
         self.pheromone = np.ones(self.distances.shape) / len(cities)  # Initial pheromone concentration
         self.all_indxs = range(len(cities))  # Indexes of all the cities
-        self.n_ants = n_ants 
-        self.n_iterations = n_iterations 
+        self.n_ants = n_ants
+        self.n_iterations = n_iterations
         self.decay = decay  # Pheromone decay factor
 
     # Function calculates the distance between each pair of cities and stores it in a 2D numpy array
@@ -58,6 +73,10 @@ class AntColonyOptimization:
     def run(self):
         # Initial shortest path is infinitely long
         shortest_path = ("placeholder", np.inf)
+        # Epoch counter
+        epoch = 1
+        x_arr_line_plot = []
+        y_arr_line_plot = []
         # Iterate for a given number of times
         for i in range(self.n_iterations):
             # Generate all paths for the current iteration
@@ -66,9 +85,17 @@ class AntColonyOptimization:
             self.spread_pheronome(all_paths)
             # Find the shortest path in the current iteration
             min_path = min(all_paths, key=lambda x: x[1])
-            if min_path[1] < shortest_path[1]: #if shorter than current shortest do your think and update and decay
+
+            print(simple_colors.green("Epoch " + str(epoch)) + " | " + "Minimum Total Distance: " + str(shortest_path[1]))
+            epoch += 1
+            x_arr_line_plot.append(epoch)
+            y_arr_line_plot.append(shortest_path[1])
+            if min_path[1] < shortest_path[1]: # If shorter than current shortest do your thing and update and decay
                 shortest_path = min_path
             self.pheromone *= self.decay
+
+        # Graph the min. distance at each iteration
+        plot_iterations_over_distance(x_arr_line_plot, y_arr_line_plot)
 
         return shortest_path
 
@@ -82,14 +109,14 @@ class AntColonyOptimization:
     # Function generates all paths for all ants in the current iteration
     def gen_all_paths(self):
         all_paths = []  # List to store all paths
-        for i in range(self.n_ants):  
-            path = self.gen_path(0)  # for each ant create pagth starting from city 0
+        for i in range(self.n_ants):
+            path = self.gen_path(random.randint(0,24))
             all_paths.append((path, self.gen_path_dist(path)))
         return all_paths
 
     # Function generates a single path for one ant, starting from a given city
     def gen_path(self, start):
-        path = []  
+        path = []
         visited = set()  # Set to store visited cities
         visited.add(start)  # Add the start city to the visited set
         prev = start  # The previous city is the start city
@@ -111,11 +138,12 @@ class AntColonyOptimization:
         pheromone = np.copy(pheromone)  # Copy of the pheromone list
         # Set the pheromone value to 0 for the cities that have already been visited
         pheromone[list(visited)] = 0
+        dist[dist == 0] = 1e-10  # avoid division by zero
         # Probability of moving to each city
         row = pheromone / dist
         norm_row = row / row.sum()
-        # Choosing city to move to based on the made up probability i created 
-        move = np.random.choice(self.all_inds, 1, p=norm_row)[0]
+        # Choosing city to move to based on the made up probability I created
+        move = np.random.choice(self.all_indxs, 1, p=norm_row)[0]
         return move
 
     # This function calculates the total distance of a given path
@@ -123,28 +151,40 @@ class AntColonyOptimization:
         return sum([self.distances[i, j] for i, j in path])
 
 # List of city names
-city_names = [
-    "Wintefell", "King's Landing", "Braavos", "Pentos", "Riverrun", "Dorne", "Highgarden",
+city_names = ["Wintefell", "King's Landing", "Braavos", "Pentos", "Riverrun", "Dorne", "Highgarden",
     "Lannisport", "The Vale", "The Eyrie", "Mareen", "Volantis", "Qarth", "Ashaai", "Pyke",
     "Oldtown", "Storm's End", "Gulltown", "White Harbor", "Qohor", "Lys", "Lorath",
-    "Stormlands", "Essos", "Tyrosh"
-]
+    "Stormlands", "Essos", "Tyrosh"]
 
 # Generate list of city objects with random coordinates
 city_list = [City(name, random.uniform(-200.0, 200.0), random.uniform(-200.0, 200.0)) for name in city_names]
 
-# Initialize  instance of the AntColonyOptimization class
-aco = AntColonyOptimization(city_list, n_ants=100, n_iterations=1000)
+print("---------------------------------------------------------------------")
+print(simple_colors.green("Parameters for Ant Colony Optimization", "bold"))
+print("---------------------------------------------------------------------")
 
-# Run the ACO algorithm and store the shortest path found
+# Print the names of the cities in the best tour and its total distance
+print(simple_colors.green("Number of cities in the tour:"), len(city_names))
+
+# Prompt for number of iterations
+#n_iterations = int(input("Enter the number of iterations (default = 500): "))
+print("\n")
+
+# Initialize instance of the AntColonyOptimization class
+aco = AntColonyOptimization(city_list, n_ants=25, n_iterations=500)
+
+# Run ACO algorithm and store the shortest path found
 shortest_path = aco.run()
 
-# Print best tour found out of all the things and total distance
-print("Best Tour:")
+# Print best tour found out of all the paths and total distance
+print(simple_colors.green("\nBest Tour:", "bold"))
 i = 1
+x_arr_for_scatter = []
+y_arr_for_scatter = []
 for move in shortest_path[0]:
-    print(str(i) + ". " + city_list[move[0]].name)
+    print(f"{i}. {simple_colors.green(city_list[move[0]].name)} | Coodinates = ({city_list[move[0]].x}, {city_list[move[0]].y})")
     i += 1
-print("Total distance:", shortest_path[1])
-
-
+    x_arr_for_scatter.append(city_list[move[0]].x)
+    y_arr_for_scatter.append(city_list[move[0]].y)
+print(simple_colors.green("\nTotal distance:", "bold"), shortest_path[1])
+plot_optimal_path_through_cities(x_arr_for_scatter, y_arr_for_scatter)
